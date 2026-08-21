@@ -91,14 +91,15 @@ jobs:
           bucket_name = "${{ secrets.CLOUD_BUCKET }}"
           s3 = boto3.client('s3')
           s3.upload_file("models/model.pkl", bucket_name, "models/latest/model.pkl")
-          print(f"Uploaded models/model.pkl to s3://{bucket_name}/models/latest/model.pkl")
+          s3.upload_file("outputs/metrics.json", bucket_name, "models/latest/metrics.json")
+          print(f"Uploaded model.pkl and metrics.json to s3://{bucket_name}/models/latest/")
           EOF
 
       - name: Save metrics as artifact
         uses: actions/upload-artifact@v4
         with:
           name: metrics
-          path: outputs/metrics.json
+          path: outputs/
 
 
   # ---------------------------------------------------------------------------
@@ -112,15 +113,56 @@ jobs:
     needs: train
     runs-on: ubuntu-latest
     steps:
+      - uses: actions/checkout@v4
 
-      - name: Check eval gate
-        # TODO 6: Doc accuracy tu output cua job train.
+      - name: Authenticate to Cloud Storage
+        env:
+          CLOUD_CREDENTIALS: ${{ secrets.CLOUD_CREDENTIALS }}
+        run: |
+          python -c "
+          import os, json
+          creds = json.loads(os.environ['CLOUD_CREDENTIALS'])
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'AWS_ACCESS_KEY_ID={creds[\"aws_access_key_id\"]}\n')
+              f.write(f'AWS_SECRET_ACCESS_KEY={creds[\"aws_secret_access_key\"]}\n')
+              f.write('AWS_DEFAULT_REGION=ap-southeast-1\n')
+          "
+
+      - name: Install dependencies
+        run: pip install boto3
+
+      - name: Check eval gate and compare with previous version
         run: |
           python - <<'EOF'
-          acc = float("${{ needs.train.outputs.accuracy }}")
-          if acc < 0.70:
-              raise SystemExit(f"FAILED: accuracy {acc:.4f} < 0.70. Huy deploy.")
-          print(f"PASSED: accuracy {acc:.4f} >= 0.70. Dang trien khai model.")
+          import os
+          import json
+          import boto3
+          from botocore.exceptions import ClientError
+
+          acc_new = float("${{ needs.train.outputs.accuracy }}")
+          
+          if acc_new < 0.70:
+              raise SystemExit(f"FAILED: Current accuracy {acc_new:.4f} < 0.70. Huy deploy.")
+          print(f"PASSED Basic quality gate: current accuracy {acc_new:.4f} >= 0.70.")
+
+          bucket_name = "${{ secrets.CLOUD_BUCKET }}"
+          s3 = boto3.client('s3')
+          
+          try:
+              s3.download_file(bucket_name, "models/latest/metrics.json", "previous_metrics.json")
+              with open("previous_metrics.json") as f:
+                  prev_data = json.load(f)
+              acc_prev = float(prev_data["accuracy"])
+              print(f"Previous deployed model accuracy: {acc_prev:.4f}")
+              
+              if acc_new < acc_prev:
+                  raise SystemExit(f"FAILED: Current accuracy ({acc_new:.4f}) is lower than previous model ({acc_prev:.4f}). Huy deploy.")
+              print(f"PASSED Comparison: Current accuracy ({acc_new:.4f}) >= Previous accuracy ({acc_prev:.4f}). Deploying...")
+          except ClientError as e:
+              if e.response['Error']['Code'] in ("404", "NoSuchKey"):
+                  print("No previous deployed model found in S3. Proceeding with initial deployment...")
+              else:
+                  raise e
           EOF
 
 

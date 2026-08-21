@@ -5,8 +5,10 @@ import yaml
 import json
 import joblib
 import os
-from sklearn.ensemble import RandomForestClassifier
-from sklearn.metrics import accuracy_score, f1_score
+import numpy as np
+from sklearn.ensemble import RandomForestClassifier, GradientBoostingClassifier
+from sklearn.linear_model import LogisticRegression
+from sklearn.metrics import accuracy_score, f1_score, confusion_matrix, classification_report
 
 EVAL_THRESHOLD = 0.70
 
@@ -18,14 +20,6 @@ def train(
 ) -> float:
     """
     Huan luyen mo hinh va ghi nhan ket qua vao MLflow.
-
-    Tham so:
-        params     : dict chua cac sieu tham so cho RandomForestClassifier.
-        data_path  : duong dan den file du lieu huan luyen.
-        eval_path  : duong dan den file du lieu danh gia.
-
-    Tra ve:
-        accuracy (float): do chinh xac tren tap danh gia.
     """
 
     # TODO 1: Doc du lieu huan luyen va danh gia
@@ -45,14 +39,34 @@ def train(
     X_eval = df_eval.drop(columns=["target"])
     y_eval = df_eval["target"]
 
+    # --- Bonus 5: Canh Bao Lech Lac Du Lieu ---
+    class_counts = y_train.value_counts(normalize=True).to_dict()
+    label_dist = {str(k): float(v) for k, v in class_counts.items()}
+    print("Label distribution in training set:")
+    for cls, prop in label_dist.items():
+        print(f"  Class {cls}: {prop:.4f}")
+        if prop < 0.10:
+            print(f"[WARNING] Class {cls} has less than 10% representation ({prop*100:.2f}%)!")
+
     with mlflow.start_run():
 
         # TODO 3: Ghi nhan cac sieu tham so
         mlflow.log_params(params)
 
-        # TODO 4: Khoi tao va huan luyen RandomForestClassifier
-        # Goi y: su dung random_state=42 de dam bao tinh tai tao
-        model = RandomForestClassifier(**params, random_state=42)
+        # --- Bonus 2: Thi Nghiem Voi Nhieu Thuat Toan ---
+        model_type = params.get("model_type", "random_forest")
+        model_params = {k: v for k, v in params.items() if k != "model_type" and v is not None}
+        
+        if model_type == "random_forest":
+            model = RandomForestClassifier(**model_params, random_state=42)
+        elif model_type == "gradient_boosting":
+            model = GradientBoostingClassifier(**model_params, random_state=42)
+        elif model_type == "logistic_regression":
+            model = LogisticRegression(**model_params, random_state=42, max_iter=1000)
+        else:
+            raise ValueError(f"Unknown model_type: {model_type}")
+
+        # Huynh luyen mo hinh
         model.fit(X_train, y_train)
 
         # TODO 5: Du doan tren tap danh gia va tinh chi so
@@ -68,18 +82,34 @@ def train(
         # TODO 7: In ket qua ra man hinh
         print(f"Accuracy: {acc:.4f} | F1: {f1:.4f}")
 
-        # TODO 8: Luu metrics ra file outputs/metrics.json
-        # File nay duoc doc boi GitHub Actions o Buoc 2
+        # --- Bonus 3: Bao Cao Hieu Suat Tu Dong ---
+        cm = confusion_matrix(y_eval, preds)
+        rep = classification_report(y_eval, preds, digits=4)
+        print("\nConfusion Matrix:")
+        print(cm)
+        print("\nClassification Report:")
+        print(rep)
+
         os.makedirs("outputs", exist_ok=True)
+        with open("outputs/report.txt", "w") as f_rep:
+            f_rep.write("=== CONFUSION MATRIX ===\n")
+            f_rep.write(np.array2string(cm) + "\n\n")
+            f_rep.write("=== CLASSIFICATION REPORT ===\n")
+            f_rep.write(rep + "\n")
+
+        # TODO 8: Luu metrics ra file outputs/metrics.json
+        # Ghi kem label_distribution theo yeu cau cua Bonus 5
         with open("outputs/metrics.json", "w") as f:
-            json.dump({"accuracy": acc, "f1_score": f1}, f)
+            json.dump({
+                "accuracy": acc, 
+                "f1_score": f1,
+                "label_distribution": label_dist
+            }, f)
 
         # TODO 9: Luu mo hinh ra file models/model.pkl
-        # File nay duoc upload len GCS o Buoc 2
         os.makedirs("models", exist_ok=True)
         joblib.dump(model, "models/model.pkl")
 
-    # TODO 10: Tra ve acc
     return acc
 
 
