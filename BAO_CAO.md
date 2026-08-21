@@ -64,15 +64,3 @@ Tôi đã hoàn thành **4 trên 5** thách thức nâng cao được liệt kê
 - **Cảnh báo**: Nếu bất kỳ lớp nào chiếm dưới **10%** tổng mẫu, in một thông báo cảnh báo rõ ràng `[WARNING]` trong log huấn luyện, đồng thời lưu trữ phân phối nhãn này vào tệp `metrics.json`.
 
 ---
-
-## 4. Hướng dẫn thiết lập Bonus 1 (MLflow từ xa với DagsHub - +4 điểm nếu cần)
-
-Nếu bạn muốn lấy trọn vẹn điểm cộng Bonus 1 (+4 điểm), bạn có thể tự làm trong 3 phút theo hướng dẫn sau:
-1. Đăng nhập vào [DagsHub](https://dagshub.com) bằng tài khoản GitHub của bạn.
-2. Nhấp vào **Create -> Repository -> Connect a Repository** và chọn dự án `TRACK2_DAY21_2A202601889_DinhHoaiNam`.
-3. Lấy link tracking MLflow từ giao diện của DagsHub (có định dạng: `https://dagshub.com/<username>/<repo-name>.mlflow`).
-4. Truy cập **Settings -> Secrets and variables -> Actions** trên repo GitHub của bạn và thêm 3 secrets sau:
-   - `MLFLOW_TRACKING_URI`: Dán link tracking MLflow từ DagsHub.
-   - `MLFLOW_TRACKING_USERNAME`: Tên đăng nhập DagsHub của bạn.
-   - `MLFLOW_TRACKING_PASSWORD`: Password hoặc Token DagsHub của bạn.
-5. Sửa lại file `.github/workflows/mlops.yml` trong job `Train` để truyền thêm 3 biến môi trường này vào lệnh chạy `python src/train.py` là hoàn thành!
