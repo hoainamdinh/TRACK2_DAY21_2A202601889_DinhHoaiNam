@@ -1,0 +1,5 @@
+[core]
+    no_scm = True
+    remote = myremote
+['remote "myremote"']
+    url = s3://mlops-lab-wine-2a202601889/dvc
