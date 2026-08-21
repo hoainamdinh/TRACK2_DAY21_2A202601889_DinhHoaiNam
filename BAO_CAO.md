@@ -40,3 +40,39 @@ Tôi đã cập nhật `params.yaml` với bộ tham số tối ưu đạt độ
 ### Khó khăn 4: Cú pháp trích xuất Secret trong GitHub Actions bị rỗng
 - **Chi tiết**: Lệnh `echo "AWS_ACCESS_KEY_ID=$(python -c ...)"` bị lỗi xung đột dấu nháy kép `"` giữa lệnh `echo` ngoài và tham số `-c` của Python khiến biến môi trường bị rỗng khi chạy DVC pull.
 - **Giải quyết**: Chuyển đổi cơ chế ghi biến môi trường sang dùng trực tiếp Python tương tác trực tiếp với tệp `$GITHUB_ENV` từ môi trường `env: CLOUD_CREDENTIALS`.
+
+---
+
+## 3. Hoàn Thành Các Thách Thức Nâng Cao (Bonus: +16/20 điểm)
+
+Tôi đã hoàn thành **4 trên 5** thách thức nâng cao được liệt kê trong rubric chấm điểm:
+
+### Bonus 2: Thí nghiệm với nhiều thuật toán (+4 điểm)
+- **Cấu hình**: Cập nhật `src/train.py` để hỗ trợ tham số `model_type` trong `params.yaml`.
+- **Hỗ trợ**: Tự động chuyển đổi giữa `random_forest`, `gradient_boosting` và `logistic_regression` với bộ siêu tham số tương ứng dựa trên cấu hình tệp `params.yaml`.
+
+### Bonus 3: Báo cáo hiệu suất tự động (+4 điểm)
+- **Tính toán**: Sau mỗi lượt huấn luyện, hệ thống tự động tính toán **Ma trận nhầm lẫn (Confusion Matrix)** và các độ đo chi tiết như **Precision, Recall** cho từng lớp (0, 1, 2).
+- **Lưu trữ**: Xuất báo cáo tự động ra file văn bản `outputs/report.txt` và lưu giữ nó thành một artifact trên GitHub Actions để tải xuống.
+
+### Bonus 4: Hoàn trả về phiên bản trước (Rollback Safety Gate) (+4 điểm)
+- **Logic an toàn**: Trong job `Eval` của pipeline, hệ thống tự động kết nối và tải thông tin metrics của mô hình đang chạy trên S3.
+- **So sánh**: Nếu độ chính xác (`accuracy`) của mô hình mới thấp hơn mô hình đang chạy trên S3, pipeline sẽ phát ra thông báo lỗi và **hủy toàn bộ quá trình deploy**, bảo vệ hệ thống serving live.
+
+### Bonus 5: Cảnh báo lệch lạc dữ liệu (Data Drift / Distribution Check) (+4 điểm)
+- **Kiểm tra**: Trước khi huấn luyện, `src/train.py` tự động phân tích phân phối nhãn (tỷ lệ phần trăm các lớp 0, 1, 2).
+- **Cảnh báo**: Nếu bất kỳ lớp nào chiếm dưới **10%** tổng mẫu, in một thông báo cảnh báo rõ ràng `[WARNING]` trong log huấn luyện, đồng thời lưu trữ phân phối nhãn này vào tệp `metrics.json`.
+
+---
+
+## 4. Hướng dẫn thiết lập Bonus 1 (MLflow từ xa với DagsHub - +4 điểm nếu cần)
+
+Nếu bạn muốn lấy trọn vẹn điểm cộng Bonus 1 (+4 điểm), bạn có thể tự làm trong 3 phút theo hướng dẫn sau:
+1. Đăng nhập vào [DagsHub](https://dagshub.com) bằng tài khoản GitHub của bạn.
+2. Nhấp vào **Create -> Repository -> Connect a Repository** và chọn dự án `TRACK2_DAY21_2A202601889_DinhHoaiNam`.
+3. Lấy link tracking MLflow từ giao diện của DagsHub (có định dạng: `https://dagshub.com/<username>/<repo-name>.mlflow`).
+4. Truy cập **Settings -> Secrets and variables -> Actions** trên repo GitHub của bạn và thêm 3 secrets sau:
+   - `MLFLOW_TRACKING_URI`: Dán link tracking MLflow từ DagsHub.
+   - `MLFLOW_TRACKING_USERNAME`: Tên đăng nhập DagsHub của bạn.
+   - `MLFLOW_TRACKING_PASSWORD`: Password hoặc Token DagsHub của bạn.
+5. Sửa lại file `.github/workflows/mlops.yml` trong job `Train` để truyền thêm 3 biến môi trường này vào lệnh chạy `python src/train.py` là hoàn thành!
