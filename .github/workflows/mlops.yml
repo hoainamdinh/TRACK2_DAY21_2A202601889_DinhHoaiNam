@@ -58,10 +58,17 @@ jobs:
         run: pip install -r requirements.txt
 
       - name: Authenticate to Cloud Storage
+        env:
+          CLOUD_CREDENTIALS: ${{ secrets.CLOUD_CREDENTIALS }}
         run: |
-          echo "AWS_ACCESS_KEY_ID=$(python -c "import json; print(json.loads('''${{ secrets.CLOUD_CREDENTIALS }}''')['aws_access_key_id'])")" >> $GITHUB_ENV
-          echo "AWS_SECRET_ACCESS_KEY=$(python -c "import json; print(json.loads('''${{ secrets.CLOUD_CREDENTIALS }}''')['aws_secret_access_key'])")" >> $GITHUB_ENV
-          echo "AWS_DEFAULT_REGION=ap-southeast-1" >> $GITHUB_ENV
+          python -c "
+          import os, json
+          creds = json.loads(os.environ['CLOUD_CREDENTIALS'])
+          with open(os.environ['GITHUB_ENV'], 'a') as f:
+              f.write(f'AWS_ACCESS_KEY_ID={creds[\"aws_access_key_id\"]}\n')
+              f.write(f'AWS_SECRET_ACCESS_KEY={creds[\"aws_secret_access_key\"]}\n')
+              f.write('AWS_DEFAULT_REGION=ap-southeast-1\n')
+          "
 
       - name: Pull data with DVC
         run: dvc pull data/train_phase1.csv.dvc data/eval.csv.dvc
